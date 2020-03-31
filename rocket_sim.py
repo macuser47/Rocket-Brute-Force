@@ -161,10 +161,15 @@ def find_path(startpose, endpose, path_step):
 
         def orientation_filter(pose):
             if abs(normalize_angle(pose.theta)) <= math.pi / 4:
-                righted = True
                 return True
-            else
+            else:
                 return not righted
+
+
+        if not righted:
+            for state in next_states:
+                if abs(normalize_angle(state.theta)) <= math.pi / 4:
+                    righted = True
 
         #filter states
         filters = [
