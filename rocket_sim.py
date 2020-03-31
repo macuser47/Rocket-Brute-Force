@@ -108,6 +108,10 @@ def find_path(startpose, endpose, path_step):
 
     pass_ct = 0
 
+    #let rocket start upside down, but remove cases where it's 
+    #upside down once it's righted itself
+    righted = False
+
     while frontier:
         pose_node = frontier.pop() 
         current_pose = pose_node.data
@@ -155,12 +159,20 @@ def find_path(startpose, endpose, path_step):
                     return False
             return True
 
+        def orientation_filter(pose):
+            if abs(normalize_angle(pose.theta)) <= math.pi / 4:
+                righted = True
+                return True
+            else
+                return not righted
+
         #filter states
         filters = [
             lambda pose: pose.y > 0,
             #lambda pose: pose_dist(startpose, endpose) > pose_dist(pose, endpose), #closer
             #lambda pose: abs(normalize_angle(pose.theta)) <= math.pi / 4, #upside-down bad
-            collision_filter
+            collision_filter,
+            orientation_filter
         ]
         
         
@@ -173,7 +185,7 @@ def find_path(startpose, endpose, path_step):
             return [path_from_leaf(create_node(soln)) for soln in correct_solns]
 
 
-        next_states = sorted(next_states, key=lambda x: weigthed_pose_dist(x, endpose), 
+        next_states = sorted(next_states, key=lambda x: pose_dist(x, endpose), 
                 reverse=False) #try promising cases first
 
         if random.random() <= 1/ 500:
@@ -183,8 +195,8 @@ def find_path(startpose, endpose, path_step):
 
 
         if len(next_states) != 0:
-            #always choose the best soln, also choose 3 members from top 30, 2 rng
-            #next_frontier.append(create_node(next_states[0]))
+            #always choose the best soln, also choose 2 random members
+            next_frontier.append(create_node(next_states.pop()))
             #next_frontier.extend(
             #        [create_node(x) for x in random.sample(next_states[:30], 3)]
             #)
@@ -220,11 +232,11 @@ def find_path(startpose, endpose, path_step):
                 plt.close()
 
             #perform larger culling step in case of overfull frontier
-            if len(frontier) > 8000:
+            if len(frontier) > 4000:
                 #Bucketization
                 buckets = defaultdict(list)
                 #bucket sizes
-                bx, by, btheta = 2.5, 2.5, 0.8
+                bx, by, btheta = 2.5, 2.5, 0.5
                 for f in frontier: 
                     buckets[hash((
                         math.floor(f.data.x / bx),
@@ -238,12 +250,13 @@ def find_path(startpose, endpose, path_step):
                     #pick ideal and random candidate
                     sorted_poses = sorted(nodes, 
                             key=lambda node: weigthed_pose_dist(node.data, endpose))
-                    #new_frontier.append(sorted_poses[0])
+                    new_frontier.append(sorted_poses[0])
 
                     if len(sorted_poses) > 1:
                         #make sure same candidate isnt chosen twice
-                        #sorted_poses.pop(0) 
-                        new_frontier.extend(random.sample(sorted_poses, 2))
+                        sorted_poses.pop(0) 
+                        new_frontier.extend(random.sample(sorted_poses, 
+                            min(len(sorted_poses), 2)))
 
                         #re-add any exceptional cases
                         #for node in sorted_poses:
@@ -267,7 +280,7 @@ if __name__ == '__main__':
     plt.plot(x, y, linewidth=2, color='blue')
     plt.show()
 
-    path_inc = 25
+    path_inc = 50
 
     def write_path(path, name):
         sim_values = [(res.x, res.y) for res in path]
